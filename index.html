@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Dispositivo - Stock Baire</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Estilos CSS existentes */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .login-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .login-form {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .sidebar {
+            width: 260px;
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            height: 100vh;
+        }
+        
+        .main-content {
+            margin-left: 260px;
+            min-height: 100vh;
+        }
+        
+        .menu-item {
+            transition: all 0.2s ease;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .menu-item:hover {
+            background-color: #f9fafb;
+        }
+        
+        .menu-item.active {
+            background-color: #eef2ff;
+            color: #4f46e5;
+        }
+        
+        .stats-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .product-image-preview {
+            max-width: 300px;
+            height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.3s, transform 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .notification.success {
+            background-color: #10b981;
+        }
+        
+        .notification.error {
+            background-color: #ef4444;
+        }
+        
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .connection-status.connected {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .connection-status.disconnected {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        
+        .real-time-badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .firebase-console {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        .log-entry.info {
+            color: #9cdcfe;
+        }
+        
+        .log-entry.success {
+            color: #b5cea8;
+        }
+        
+        .log-entry.error {
+            color: #f44747;
+        }
+        
+        .upload-progress {
+            height: 6px;
+            background-color: #e5e7eb;
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .upload-progress-bar {
+            height: 100%;
+            background-color: #3b82f6;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .upload-status {
+            font-size: 0.875rem;
+            margin-top: 4px;
+            color: #6b7280;
+        }
+        
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 50;
+            background: white;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .mobile-menu-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 30;
+        }
+        
+        .sidebar-content {
+            height: calc(100vh - 64px);
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                z-index: 40;
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .mobile-menu-btn {
+                display: block;
+            }
+            
+            .mobile-menu-overlay.active {
+                display: block;
+            }
+        }
+
+        /* Estilos para el selector de modo de login */
+        .login-mode-selector {
+            display: flex;
+            margin-bottom: 1.5rem;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        
+        .login-mode-btn {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .login-mode-btn.active {
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Nuevos estilos para múltiples imágenes */
+        .image-previews-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .image-preview-item {
+            position: relative;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 120px;
+        }
+        
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .remove-image-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(239, 68, 68, 0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .uploaded-images-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .uploaded-image-item {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .uploaded-image-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .image-number-badge {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Notification -->
+    <div id="notification" class="notification hidden"></div>
+    
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status hidden">
+        <i class="fas fa-wifi mr-2"></i>
+        <span id="connectionText">Conectando...</span>
+    </div>
+
+    <!-- Login Section -->
+    <div id="loginSection" class="login-container flex items-center justify-center p-4">
+        <div class="login-form w-full max-w-md p-8" data-aos="zoom-in">
+            <div class="text-center mb-8">
+                <img src="https://i.postimg.cc/Qd3D7TVg/image-1.png" alt="Logo Stock Baire" class="h-20 w-20 mx-auto rounded-full mb-4 border-4 border-white shadow-lg">
+                <h1 class="text-3xl font-bold text-gray-800">Stock Baire</h1>
+                <p class="text-gray-600" id="loginSubtitle">Panel de Administración</p>
+            </div>
+            
+            <!-- Selector de modo de login -->
+            <div class="login-mode-selector mb-6">
+                <div class="login-mode-btn active" data-mode="admin">Administrador</div>
+                <div class="login-mode-btn" data-mode="device">Dispositivo</div>
+            </div>
+            
+            <!-- Formulario de Login -->
+            <form id="loginForm">
+                <!-- Campos para administrador -->
+                <div id="adminLoginFields">
+                    <div class="mb-4">
+                        <label for="email" class="block text-gray-700 text-sm font-medium mb-2">Correo Electrónico</label>
+                        <input type="email" id="email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="password" class="block text-gray-700 text-sm font-medium mb-2">Contraseña</label>
+                        <input type="password" id="password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                    </div>
+                </div>
+                
+                <!-- Campos para dispositivo -->
+                <div id="deviceLoginFields" class="hidden">
+                    <div class="mb-4">
+                        <label for="deviceId" class="block text-gray-700 text-sm font-medium mb-2">ID del Dispositivo</label>
+                        <input type="text" id="deviceId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="deviceName" class="block text-gray-700 text-sm font-medium mb-2">Nombre del Dispositivo</label>
+                        <input type="text" id="deviceName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 flex items-center justify-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Iniciar Sesión
+                </button>
+                
+                <div id="loginError" class="mt-4 text-red-600 text-center hidden">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <span id="errorMessage">Credenciales incorrectas. Intenta nuevamente.</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Panel (hidden by default) -->
+    <div id="adminPanel" class="hidden">
+        <!-- Mobile Menu Button -->
+        <button id="mobileMenuBtn" class="mobile-menu-btn">
+            <i class="fas fa-bars text-gray-800"></i>
+        </button>
+        
+        <div id="mobileMenuOverlay" class="mobile-menu-overlay"></div>
+        
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar fixed inset-y-0 left-0 bg-white shadow-lg z-40">
+            <div class="flex items-center justify-center h-16 px-4 bg-indigo-600">
+                <h1 class="text-white font-bold text-xl">Stock Baire</h1>
+            </div>
+            
+            <!-- Contenedor desplazable para el menú -->
+            <div class="sidebar-content">
+                <nav class="px-2 py-4">
+                    <a href="#" class="menu-item active flex items-center px-4 py-3 text-gray-700 bg-indigo-50 border-r-4 border-indigo-600">
+                        <i class="fas fa-home mr-3 text-indigo-600"></i>
+                        <span class="menu-text">Dashboard</span>
+                    </a>
+                    <a href="#products" class="menu-item flex items-center px-4 py-3 text-gray-500 hover:bg-gray-50">
+                        <i class="fas fa-box mr-3"></i>
+                        <span class="menu-text">Productos</span>
+                    </a>
+                    <a href="#devices" class="menu-item flex items-center px-4 py-3 text-gray-500 hover:bg-gray-50 device-menu-item">
+                        <i class="fas fa-mobile-alt mr-3"></i>
+                        <span class="menu-text">Dispositivos</span>
+                    </a>
+                    <a href="#monitor" class="menu-item flex items-center px-4 py-3 text-gray-500 hover:bg-gray-50 monitor-menu-item">
+                        <i class="fas fa-chart-line mr-3"></i>
+                        <span class="menu-text">Monitoreo</span>
+                    </a>
+                    <a href="#settings" class="menu-item flex items-center px-4 py-3 text-gray-500 hover:bg-gray-50 settings-menu-item">
+                        <i class="fas fa-cog mr-3"></i>
+                        <span class="menu-text">Configuración</span>
+                    </a>
+                    <a href="#" id="logoutBtn" class="menu-item flex items-center px-4 py-3 text-gray-500 hover:bg-gray-50 mt-10">
+                        <i class="fas fa-sign-out-alt mr-3"></i>
+                        <span class="menu-text">Cerrar Sesión</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="bg-white shadow">
+                <div class="flex justify-between items-center px-6 py-4">
+                    <div>
+                        <h2 class="text-2xl font-semibold text-gray-800" id="panelTitle">Panel de Administración Principal</h2>
+                        <p class="text-gray-600" id="panelSubtitle">Gestión central de productos y dispositivos</p>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="mr-4 text-right">
+                            <p class="text-sm text-gray-800" id="userRole">Administrador Principal</p>
+                            <p id="userEmail" class="text-xs text-gray-600 truncate max-w-[180px]">usuario@example.com</p>
+                        </div>
+                        <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <i class="fas fa-user text-indigo-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <main class="p-4 md:p-6">
+                <!-- Stats Overview -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8" id="statsOverview">
+                    <div class="stats-card sales bg-white p-4 md:p-5 rounded-lg shadow" data-aos="fade-up" data-aos-delay="100">
+                        <div class="flex items-center">
+                            <div class="p-2 md:p-3 rounded-full bg-green-100 text-green-600 mr-3 md:mr-4">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Ventas Hoy</p>
+                                <h3 class="text-xl md:text-2xl font-bold text-gray-800">$1,240</h3>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card products bg-white p-4 md:p-5 rounded-lg shadow" data-aos="fade-up" data-aos-delay="200">
+                        <div class="flex items-center">
+                            <div class="p-2 md:p-3 rounded-full bg-blue-100 text-blue-600 mr-3 md:mr-4">
+                                <i class="fas fa-box"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Total Productos</p>
+                                <h3 class="text-xl md:text-2xl font-bold text-gray-800" id="totalProducts">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card users bg-white p-4 md:p-5 rounded-lg shadow" data-aos="fade-up" data-aos-delay="300">
+                        <div class="flex items-center">
+                            <div class="p-2 md:p-3 rounded-full bg-purple-100 text-purple-600 mr-3 md:mr-4">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Dispositivos</p>
+                                <h3 class="text-xl md:text-2xl font-bold text-gray-800" id="totalDevices">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card orders bg-white p-4 md:p-5 rounded-lg shadow" data-aos="fade-up" data-aos-delay="400">
+                        <div class="flex items-center">
+                            <div class="p-2 md:p-3 rounded-full bg-yellow-100 text-yellow-600 mr-3 md:mr-4">
+                                <i class="fas fa-shopping-bag"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Productos Globales</p>
+                                <h3 class="text-xl md:text-2xl font-bold text-gray-800" id="totalGlobalProducts">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Management -->
+                <div id="productsSection" class="bg-white rounded-lg shadow mb-6 md:mb-8">
+                    <div class="px-4 md:px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-800">Gestión de Productos</h3>
+                            <p class="text-sm text-gray-600">Añade, edita o elimina productos de tu tienda</p>
+                        </div>
+                        <span class="real-time-badge bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                            <i class="fas fa-circle mr-1"></i> Tiempo real
+                        </span>
+                    </div>
+                    
+                    <div class="p-4 md:p-6">
+                        <!-- Product Form -->
+                        <form id="productForm" class="mb-6 md:mb-8">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
+                                <div>
+                                    <label for="productName" class="block text-sm font-medium text-gray-700 mb-2">Nombre del Producto</label>
+                                    <input type="text" id="productName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                                </div>
+                                
+                                <div>
+                                    <label for="productCategory" class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+                                    <select id="productCategory" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                                        <option value="">Seleccione una categoría</option>
+                                        <option value="phones">Teléfonos</option>
+                                        <option value="laptops">Laptops</option>
+                                        <option value="watches">Smartwatches</option>
+                                        <option value="electronics">Electrónica</option>
+                                        <option value="home">Hogar</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label for="productPrice" class="block text-sm font-medium text-gray-700 mb-2">Precio (USD)</label>
+                                    <input type="number" id="productPrice" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                                </div>
+                                
+                                <div>
+                                    <label for="productOldPrice" class="block text-sm font-medium text-gray-700 mb-2">Precio Anterior (opcional)</label>
+                                    <input type="number" id="productOldPrice" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                                </div>
+                                
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Imágenes del Producto (hasta 5)</label>
+                                    <div class="flex items-center">
+                                        <input type="file" id="imageUpload" accept="image/*" multiple class="hidden">
+                                        <button type="button" id="uploadImageBtn" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150">
+                                            <i class="fas fa-upload mr-2"></i> Seleccionar Imágenes
+                                        </button>
+                                    </div>
+                                    <div class="upload-progress hidden" id="uploadProgress">
+                                        <div class="upload-progress-bar" id="uploadProgressBar"></div>
+                                    </div>
+                                    <div class="upload-status hidden" id="uploadStatus">Subiendo imágenes...</div>
+                                    <p class="text-xs text-gray-500 mt-1">Las imágenes se subirán a imgBB y se generarán enlaces permanentes.</p>
+                                    
+                                    <!-- Contenedor para previsualización de imágenes seleccionadas -->
+                                    <div id="selectedImagesContainer" class="mt-3 hidden">
+                                        <p class="text-sm font-medium text-gray-700 mb-2">Imágenes seleccionadas:</p>
+                                        <div id="selectedImagesList" class="image-previews-container"></div>
+                                    </div>
+                                    
+                                    <!-- Contenedor para imágenes ya subidas (en modo edición) -->
+                                    <div id="uploadedImagesContainer" class="mt-3 hidden">
+                                        <p class="text-sm font-medium text-gray-700 mb-2">Imágenes del producto:</p>
+                                        <div id="uploadedImagesList" class="uploaded-images-list"></div>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label for="productStatus" class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                                    <select id="productStatus" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                                        <option value="active">Activo</option>
+                                        <option value="hidden">Oculto</option>
+                                    </select>
+                                </div>
+
+                                <!-- Nuevos campos para control de dispositivos -->
+                                <div id="deviceAssignmentField">
+                                    <label for="productDevice" class="block text-sm font-medium text-gray-700 mb-2">Dispositivo Asignado</label>
+                                    <select id="productDevice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                                        <option value="">Todos los dispositivos (Global)</option>
+                                        <!-- Los dispositivos se cargarán dinámicamente -->
+                                    </select>
+                                </div>
+
+                                <div id="globalProductField">
+                                    <label for="isGlobalProduct" class="flex items-center mt-6">
+                                        <input type="checkbox" id="isGlobalProduct" class="mr-2">
+                                        <span class="text-sm text-gray-700">Producto visible para todos los dispositivos</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4 md:mb-6">
+                                <label for="productDescription" class="block text-sm font-medium text-gray-700 mb-2">Descripción del Producto</label>
+                                <textarea id="productDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required></textarea>
+                            </div>
+                            
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 flex items-center justify-center">
+                                    <i class="fas fa-plus-circle mr-2"></i> Añadir Producto
+                                </button>
+                                <button type="button" id="cancelEdit" class="bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-150 flex items-center justify-center hidden">
+                                    Cancelar Edición
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <!-- Products List -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-800 mb-3 md:mb-4">Lista de Productos</h4>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dispositivo</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imágenes</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="productsList" class="bg-white divide-y divide-gray-200">
+                                        <!-- Products will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Devices Management Section -->
+                <div id="devicesSection" class="bg-white rounded-lg shadow mb-6 md:mb-8 hidden">
+                    <div class="px-4 md:px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-800">Gestión de Dispositivos</h3>
+                        <p class="text-sm text-gray-600">Administra los dispositivos conectados al sistema</p>
+                    </div>
+                    
+                    <div class="p-4 md:p-6">
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Dispositivos Registrados</h4>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID del Dispositivo</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Productos Asociados</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última Conexión</th>
+                                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devicesList" class="bg-white divide-y divide-gray-200">
+                                        <!-- Devices will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Añadir Nuevo Dispositivo</h4>
+                            <form id="deviceForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label for="newDeviceId" class="block text-sm font-medium text-gray-700 mb-2">ID del Dispositivo</label>
+                                    <input type="text" id="newDeviceId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                                </div>
+                                <div>
+                                    <label for="newDeviceName" class="block text-sm font-medium text-gray-700 mb-2">Nombre del Dispositivo</label>
+                                    <input type="text" id="newDeviceName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150" required>
+                                </div>
+                                <div class="flex items-end">
+                                    <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150">
+                                        <i class="fas fa-plus-circle mr-2"></i> Registrar Dispositivo
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Supabase Monitor Section -->
+                <div id="monitorSection" class="bg-white rounded-lg shadow mb-8 hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-800">Monitoreo de Supabase</h3>
+                        <p class="text-sm text-gray-600">Verifica en tiempo real el estado de tu base de datos</p>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Estado de Conexión</h4>
+                            <div id="supabaseStatus" class="flex items-center p-4 bg-gray-100 rounded-lg">
+                                <div id="statusIndicator" class="h-3 w-3 rounded-full bg-yellow-500 mr-3"></div>
+                                <span id="statusText">Verificando conexión con Supabase...</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Registro de Actividad</h4>
+                            <div class="firebase-console">
+                                <div id="supabaseLogs">
+                                    <div class="log-entry info">
+                                        <span class="text-gray-500">[Sistema] Inicializando panel de administración...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Acciones Rápidas</h4>
+                            <div class="flex flex-wrap gap-3">
+                                <button id="testConnectionBtn" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 flex items-center">
+                                    <i class="fas fa-plug mr-2"></i> Probar Conexión
+                                </button>
+                                <button id="clearLogsBtn" class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-150 flex items-center">
+                                    <i class="fas fa-broom mr-2"></i> Limpiar Registros
+                                </button>
+                                <button id="viewInConsoleBtn" class="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-150 flex items-center">
+                                    <i class="fas fa-external-link-alt mr-2"></i> Ver en Supabase Dashboard
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialize AOS animations
+        AOS.init({
+            duration: 800,
+            easing: 'ease-in-out',
+            once: true
+        });
+        
+        // Initialize feather icons
+        feather.replace();
+        
+        // Supabase configuration
+        const SUPABASE_URL = 'https://exuutmlbezajrqwchkck.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dXV0bWxiZXphanJxd2Noa2NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MjU5ODYsImV4cCI6MjA3MzMwMTk4Nn0.GXBs9vfzbBu2tGMmZom43FrgqVvhSES4w6gK1oZaoxs';
+        
+        // Initialize Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // imgBB API Key
+        const IMGBB_API_KEY = 'f5148c96b3b52d57c1c74bab3e6d0f58';
+        
+        
+        // Credenciales de administrador
+        const ADMIN_CREDENTIALS = {
+            email: 'stockbaire@gmail.com',
+            password: 'stockbaire'
+        };
+        
+        // DOM elements
+        const loginSection = document.getElementById('loginSection');
+        const adminPanel = document.getElementById('adminPanel');
+        const loginForm = document.getElementById('loginForm');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userEmail = document.getElementById('userEmail');
+        const userRole = document.getElementById('userRole');
+        const panelTitle = document.getElementById('panelTitle');
+        const panelSubtitle = document.getElementById('panelSubtitle');
+        const productForm = document.getElementById('productForm');
+        const cancelEditBtn = document.getElementById('cancelEdit');
+        const productsList = document.getElementById('productsList');
+        const totalProducts = document.getElementById('totalProducts');
+        const totalDevices = document.getElementById('totalDevices');
+        const totalGlobalProducts = document.getElementById('totalGlobalProducts');
+        const notification = document.getElementById('notification');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectionText = document.getElementById('connectionText');
+        const monitorSection = document.getElementById('monitorSection');
+        const devicesSection = document.getElementById('devicesSection');
+        const supabaseLogs = document.getElementById('supabaseLogs');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const testConnectionBtn = document.getElementById('testConnectionBtn');
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        const viewInConsoleBtn = document.getElementById('viewInConsoleBtn');
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+        const uploadImageBtn = document.getElementById('uploadImageBtn');
+        const imageUpload = document.getElementById('imageUpload');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const deviceForm = document.getElementById('deviceForm');
+        const devicesList = document.getElementById('devicesList');
+        const productDevice = document.getElementById('productDevice');
+        const adminLoginFields = document.getElementById('adminLoginFields');
+        const deviceLoginFields = document.getElementById('deviceLoginFields');
+        const loginSubtitle = document.getElementById('loginSubtitle');
+        const loginModeBtns = document.querySelectorAll('.login-mode-btn');
+        const deviceAssignmentField = document.getElementById('deviceAssignmentField');
+        const globalProductField = document.getElementById('globalProductField');
+        const statsOverview = document.getElementById('statsOverview');
+        const deviceMenuItems = document.querySelectorAll('.device-menu-item, .monitor-menu-item, .settings-menu-item');
+        const selectedImagesContainer = document.getElementById('selectedImagesContainer');
+        const selectedImagesList = document.getElementById('selectedImagesList');
+        const uploadedImagesContainer = document.getElementById('uploadedImagesContainer');
+        const uploadedImagesList = document.getElementById('uploadedImagesList');
+        
+        // Current editing product ID
+        let editingProductId = null;
+        let realtimeSubscription = null;
+        let devicesRealtimeSubscription = null;
+        let devices = [];
+        let currentUser = null;
+        let loginMode = 'admin'; // 'admin' o 'device'
+        let selectedFiles = [];
+        let uploadedImageUrls = [];
+        
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            const user = JSON.parse(localStorage.getItem('adminUser'));
+            if (user) {
+                currentUser = user;
+                if (user.type === 'admin') {
+                    showAdminPanel(user.email, 'admin');
+                } else {
+                    showAdminPanel(user.deviceName, 'device');
+                }
+                initializeSupabaseMonitoring();
+            }
+            
+            // Login form submission
+            loginForm.addEventListener('submit', handleLogin);
+            
+            // Logout button
+            logoutBtn.addEventListener('click', handleLogout);
+            
+            // Product form submission
+            productForm.addEventListener('submit', handleProductSubmit);
+            
+            // Device form submission
+            deviceForm.addEventListener('submit', handleDeviceSubmit);
+            
+            // Cancel edit button
+            cancelEditBtn.addEventListener('click', resetProductForm);
+            
+            // Image upload button
+            uploadImageBtn.addEventListener('click', function() {
+                imageUpload.click();
+            });
+            
+            // Image upload change
+            imageUpload.addEventListener('change', handleImageSelection);
+            
+            // Monitor buttons
+            testConnectionBtn.addEventListener('click', testSupabaseConnection);
+            clearLogsBtn.addEventListener('click', clearLogs);
+            viewInConsoleBtn.addEventListener('click', viewInConsole);
+            
+            // Mobile menu
+            mobileMenuBtn.addEventListener('click', toggleSidebar);
+            mobileMenuOverlay.addEventListener('click', toggleSidebar);
+            
+            // Login mode selector
+            loginModeBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    loginModeBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    loginMode = this.getAttribute('data-mode');
+                    updateLoginForm();
+                });
+            });
+            
+            // Navigation
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    if(this.getAttribute('href') !== '#') {
+                        e.preventDefault();
+                    }
+                    
+                    const target = this.getAttribute('href').substring(1);
+                    
+                    // Update active menu item
+                    document.querySelectorAll('.menu-item').forEach(i => {
+                        i.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // Show/hide sections
+                    document.getElementById('productsSection').classList.add('hidden');
+                    monitorSection.classList.add('hidden');
+                    devicesSection.classList.add('hidden');
+                    
+                    if (target === 'monitor') {
+                        monitorSection.classList.remove('hidden');
+                    } else if (target === 'products') {
+                        document.getElementById('productsSection').classList.remove('hidden');
+                    } else if (target === 'devices') {
+                        devicesSection.classList.remove('hidden');
+                        loadDevices();
+                    }
+                    
+                    // Close sidebar on mobile
+                    if(window.innerWidth <= 768) {
+                        toggleSidebar();
+                    }
+                });
+            });
+            
+            // Close sidebar when clicking outside on desktop
+            document.addEventListener('click', function(e) {
+                if(window.innerWidth > 768) return;
+                if(!sidebar.contains(e.target) && e.target !== mobileMenuBtn) {
+                    sidebar.classList.remove('active');
+                    mobileMenuOverlay.classList.remove('active');
+                }
+            });
+        });
+        
+        function updateLoginForm() {
+            if (loginMode === 'admin') {
+                adminLoginFields.classList.remove('hidden');
+                deviceLoginFields.classList.add('hidden');
+                loginSubtitle.textContent = 'Panel de Administración';
+            } else {
+                adminLoginFields.classList.add('hidden');
+                deviceLoginFields.classList.remove('hidden');
+                loginSubtitle.textContent = 'Panel de Dispositivo';
+            }
+        }
+        
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            mobileMenuOverlay.classList.toggle('active');
+        }
+        
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            logEntry.innerHTML = `<span class="text-gray-500">[${timestamp}]</span> ${message}`;
+            
+            supabaseLogs.appendChild(logEntry);
+            supabaseLogs.scrollTop = supabaseLogs.scrollHeight;
+        }
+        
+        function initializeSupabaseMonitoring() {
+            // Monitor connection state
+            testSupabaseConnection();
+            
+            // Set up realtime subscription for products
+            setupRealtimeSubscription();
+            
+            // Set up realtime subscription for devices (solo para admin)
+            if (currentUser.type === 'admin') {
+                setupDevicesRealtimeSubscription();
+            }
+            
+            // Load initial data
+            loadProducts();
+            
+            // Load devices solo para admin
+            if (currentUser.type === 'admin') {
+                loadDevices();
+            }
+        }
+        
+        function setupRealtimeSubscription() {
+            // Remove existing subscription if any
+            if (realtimeSubscription) {
+                supabase.removeChannel(realtimeSubscription);
+            }
+            
+            // Subscribe to inserts, updates and deletes on products table
+            realtimeSubscription = supabase
+                .channel('products-changes')
+                .on('postgres_changes', 
+                    { 
+                        event: '*', 
+                        schema: 'public', 
+                        table: 'products' 
+                    }, 
+                    (payload) => {
+                        addLog(`Cambio en productos: ${payload.eventType}`, 'info');
+                        loadProducts();
+                    }
+                )
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        addLog('Suscripción a cambios en tiempo real activada', 'success');
+                    }
+                });
+        }
+        
+        function setupDevicesRealtimeSubscription() {
+            // Remove existing subscription if any
+            if (devicesRealtimeSubscription) {
+                supabase.removeChannel(devicesRealtimeSubscription);
+            }
+            
+            // Subscribe to inserts, updates and deletes on devices table
+            devicesRealtimeSubscription = supabase
+                .channel('devices-changes')
+                .on('postgres_changes', 
+                    { 
+                        event: '*', 
+                        schema: 'public', 
+                        table: 'devices' 
+                    }, 
+                    (payload) => {
+                        addLog(`Cambio en dispositivos: ${payload.eventType}`, 'info');
+                        loadDevices();
+                    }
+                )
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        addLog('Suscripción a cambios de dispositivos activada', 'success');
+                    }
+                });
+        }
+        
+        function testSupabaseConnection() {
+            addLog('Probando conexión con Supabase...', 'info');
+            
+            // Try to read from products table
+            supabase
+                .from('products')
+                .select('count', { count: 'exact', head: true })
+                .then(({ error }) => {
+                    if (error) {
+                        statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500 mr-3';
+                        statusText.textContent = 'Error de conexión: ' + error.message;
+                        connectionStatus.className = 'connection-status disconnected';
+                        connectionText.innerHTML = '<i class="fas fa-wifi-slash mr-2"></i> Error de conexión';
+                        connectionStatus.classList.remove('hidden');
+                        
+                        addLog('Error de conexión: ' + error.message, 'error');
+                    } else {
+                        statusIndicator.className = 'h-3 w-3 rounded-full bg-green-500 mr-3';
+                        statusText.textContent = 'Conectado a Supabase';
+                        connectionStatus.className = 'connection-status connected';
+                        connectionText.innerHTML = '<i class="fas fa-wifi mr-2"></i> Conectado a Supabase';
+                        connectionStatus.classList.remove('hidden');
+                        
+                        addLog('Conexión establecida con Supabase', 'success');
+                        
+                        // Load products after confirming connection
+                        loadProducts();
+                        if (currentUser.type === 'admin') {
+                            loadDevices();
+                        }
+                    }
+                });
+        }
+        
+        function clearLogs() {
+            supabaseLogs.innerHTML = '';
+            addLog('Registros limpiados', 'info');
+        }
+        
+        function viewInConsole() {
+            window.open('https://app.supabase.com/', '_blank');
+        }
+        
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            // Also add to logs
+            addLog(message, type);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            if (loginMode === 'admin') {
+                // Authentication with stored credentials
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
+                    const user = { 
+                        type: 'admin',
+                        email: email 
+                    };
+                    localStorage.setItem('adminUser', JSON.stringify(user));
+                    currentUser = user;
+                    showAdminPanel(email, 'admin');
+                    initializeSupabaseMonitoring();
+                    showNotification('Sesión iniciada correctamente');
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                    document.getElementById('errorMessage').textContent = 'Credenciales incorrectas. Intenta nuevamente.';
+                    showNotification('Credenciales incorrectas', 'error');
+                }
+            } else {
+                // Device authentication
+                const deviceId = document.getElementById('deviceId').value;
+                const deviceName = document.getElementById('deviceName').value;
+                
+                // Verificar si el dispositivo existe en la base de datos
+                supabase
+                    .from('devices')
+                    .select('*')
+                    .eq('id', deviceId)
+                    .eq('name', deviceName)
+                    .then(({ data, error }) => {
+                        if (error) {
+                            document.getElementById('loginError').classList.remove('hidden');
+                            document.getElementById('errorMessage').textContent = 'Error al verificar el dispositivo.';
+                            showNotification('Error al verificar el dispositivo', 'error');
+                            return;
+                        }
+                        
+                        if (data && data.length > 0) {
+                            const user = { 
+                                type: 'device',
+                                deviceId: deviceId,
+                                deviceName: deviceName
+                            };
+                            localStorage.setItem('adminUser', JSON.stringify(user));
+                            currentUser = user;
+                            showAdminPanel(deviceName, 'device');
+                            initializeSupabaseMonitoring();
+                            showNotification('Sesión de dispositivo iniciada correctamente');
+                        } else {
+                            document.getElementById('loginError').classList.remove('hidden');
+                            document.getElementById('errorMessage').textContent = 'Dispositivo no encontrado. Verifique las credenciales.';
+                            showNotification('Dispositivo no encontrado', 'error');
+                        }
+                    });
+            }
+        }
+        
+        function handleLogout() {
+            // Remove realtime subscriptions
+            if (realtimeSubscription) {
+                supabase.removeChannel(realtimeSubscription);
+            }
+            if (devicesRealtimeSubscription) {
+                supabase.removeChannel(devicesRealtimeSubscription);
+            }
+            
+            localStorage.removeItem('adminUser');
+            currentUser = null;
+            adminPanel.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            resetProductForm();
+            showNotification('Sesión cerrada correctamente');
+        }
+        
+        function showAdminPanel(userDisplay, type) {
+            userEmail.textContent = type === 'admin' ? userDisplay : `Dispositivo: ${userDisplay}`;
+            userRole.textContent = type === 'admin' ? 'Administrador Principal' : 'Dispositivo';
+            panelTitle.textContent = type === 'admin' ? 'Panel de Administración Principal' : 'Panel de Dispositivo';
+            panelSubtitle.textContent = type === 'admin' ? 'Gestión central de productos y dispositivos' : 'Gestión de productos del dispositivo';
+            
+            // Mostrar/ocultar elementos según el tipo de usuario
+            if (type === 'device') {
+                deviceMenuItems.forEach(item => item.classList.add('hidden'));
+                statsOverview.classList.add('hidden');
+                deviceAssignmentField.classList.add('hidden');
+                globalProductField.classList.add('hidden');
+                document.querySelector('button[type="submit"]').textContent = 'Añadir Producto al Dispositivo';
+            } else {
+                deviceMenuItems.forEach(item => item.classList.remove('hidden'));
+                statsOverview.classList.remove('hidden');
+                deviceAssignmentField.classList.remove('hidden');
+                globalProductField.classList.remove('hidden');
+                document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-plus-circle mr-2"></i> Añadir Producto';
+            }
+            
+            loginSection.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+        }
+        
+        function handleImageSelection(e) {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+            
+            // ✅ SOLUCIÓN: Agregar nuevas imágenes a las existentes (hasta máximo 5)
+            const newFiles = Array.from(files);
+            const availableSlots = 5 - selectedFiles.length;
+            
+            if (availableSlots > 0) {
+                const filesToAdd = newFiles.slice(0, availableSlots);
+                selectedFiles = [...selectedFiles, ...filesToAdd];
+            } else {
+                showNotification('Máximo de 5 imágenes alcanzado', 'error');
+                return;
+            }
+            
+            // Resto del código para mostrar previsualizaciones...
+            selectedImagesContainer.classList.remove('hidden');
+            selectedImagesList.innerHTML = '';
+            
+            // Mostrar previsualización de cada imagen
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'image-preview-item';
+                    
+                    previewItem.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview ${index + 1}">
+                        <button type="button" class="remove-image-btn" data-index="${index}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    
+                    selectedImagesList.appendChild(previewItem);
+                    
+                    // Agregar evento para eliminar imagen
+                    previewItem.querySelector('.remove-image-btn').addEventListener('click', function() {
+                        const removeIndex = parseInt(this.getAttribute('data-index'));
+                        selectedFiles.splice(removeIndex, 1);
+                        updateImagePreviews(); // Nueva función para actualizar vistas
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            // Subir imágenes automáticamente
+            uploadImages();
+        }
+        
+        // ✅ Nueva función para actualizar previsualizaciones
+        function updateImagePreviews() {
+            selectedImagesList.innerHTML = '';
+            
+            if (selectedFiles.length === 0) {
+                selectedImagesContainer.classList.add('hidden');
+                return;
+            }
+            
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'image-preview-item';
+                    
+                    previewItem.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview ${index + 1}">
+                        <button type="button" class="remove-image-btn" data-index="${index}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    
+                    selectedImagesList.appendChild(previewItem);
+                    
+                    previewItem.querySelector('.remove-image-btn').addEventListener('click', function() {
+                        const removeIndex = parseInt(this.getAttribute('data-index'));
+                        selectedFiles.splice(removeIndex, 1);
+                        updateImagePreviews();
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function uploadImages() {
+            if (selectedFiles.length === 0) return;
+            
+            // Show upload UI
+            uploadProgress.classList.remove('hidden');
+            uploadStatus.classList.remove('hidden');
+            uploadProgressBar.style.width = '0%';
+            uploadStatus.textContent = 'Subiendo imágenes...';
+            
+            // Reset uploaded URLs
+            uploadedImageUrls = [];
+            
+            // Upload each file sequentially
+            let uploadPromises = selectedFiles.map((file, index) => {
+                return new Promise((resolve, reject) => {
+                    // Validate file type
+                    if (!file.type.match('image.*')) {
+                        reject(new Error('Solo se permiten archivos de imagen'));
+                        return;
+                    }
+        
+                    // Validate file size (max 10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                        reject(new Error('La imagen no debe superar los 10MB'));
+                        return;
+                    }
+        
+                    // Create FormData
+                    const formData = new FormData();
+                    formData.append('image', file);
+        
+                    // Upload to imgBB
+                    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const imageUrl = data.data.url;
+                            uploadedImageUrls.push(imageUrl);
+                            
+                            // Update progress
+                            const progress = Math.round(((index + 1) / selectedFiles.length) * 100);
+                            uploadProgressBar.style.width = `${progress}%`;
+                            uploadStatus.textContent = `Subiendo imágenes... ${index + 1}/${selectedFiles.length}`;
+                            
+                            resolve(imageUrl);
+                        } else {
+                            reject(new Error(data.error.message || 'Error al subir la imagen'));
+                        }
+                    })
+                    .catch(error => {
+                        reject(error);
+                    });
+                });
+            });
+            
+            // Wait for all uploads to complete
+            Promise.all(uploadPromises)
+                .then(urls => {
+                    uploadStatus.textContent = 'Imágenes subidas correctamente';
+                    showNotification('Imágenes subidas correctamente a imgBB');
+                    
+                    // Hide progress after success
+                    setTimeout(() => {
+                        resetUploadUI();
+                    }, 2000);
+                    
+                    // Show uploaded images
+                    showUploadedImages(uploadedImageUrls);
+                })
+                .catch(error => {
+                    uploadStatus.textContent = 'Error al subir las imágenes';
+                    showNotification('Error al subir las imágenes: ' + error.message, 'error');
+                });
+        }
+        
+        function showUploadedImages(urls) {
+            uploadedImagesContainer.classList.remove('hidden');
+            uploadedImagesList.innerHTML = '';
+            
+            urls.forEach((url, index) => {
+                const imageItem = document.createElement('div');
+                imageItem.className = 'uploaded-image-item';
+                imageItem.innerHTML = `
+                    <img src="${url}" alt="Imagen ${index + 1}">
+                    <span class="image-number-badge">${index + 1}</span>
+                `;
+                uploadedImagesList.appendChild(imageItem);
+            });
+        }
+        
+        function resetUploadUI() {
+            setTimeout(() => {
+                uploadProgress.classList.add('hidden');
+                uploadStatus.classList.add('hidden');
+                uploadProgressBar.style.width = '0%';
+            }, 2000);
+        }
+        
+        async function handleProductSubmit(e) {
+            e.preventDefault();
+            
+            let deviceValue = document.getElementById('productDevice').value;
+            const isGlobal = document.getElementById('isGlobalProduct').checked;
+            
+            // Si es un dispositivo, usar su ID automáticamente
+            if (currentUser.type === 'device') {
+                deviceValue = currentUser.deviceId;
+            }
+            
+            const product = {
+                name: document.getElementById('productName').value,
+                category: document.getElementById('productCategory').value,
+                price: parseFloat(document.getElementById('productPrice').value),
+                old_price: document.getElementById('productOldPrice').value ? parseFloat(document.getElementById('productOldPrice').value) : null,
+                images: uploadedImageUrls, // Array de URLs de imágenes
+                status: document.getElementById('productStatus').value,
+                description: document.getElementById('productDescription').value,
+                created_by_device_id: isGlobal ? null : deviceValue,
+                is_global: isGlobal
+            };
+            
+            addLog(`Intentando ${editingProductId ? 'actualizar' : 'añadir'} producto: ${product.name}`, 'info');
+            
+            try {
+                if (editingProductId) {
+                    // Update existing product
+                    const { error } = await supabase
+                        .from('products')
+                        .update(product)
+                        .eq('id', editingProductId);
+                    
+                    if (error) throw error;
+                    
+                    showNotification('Producto actualizado correctamente');
+                    addLog(`Producto actualizado: ${product.name} (ID: ${editingProductId})`, 'success');
+                    resetProductForm();
+                } else {
+                    // Add new product
+                    const { data, error } = await supabase
+                        .from('products')
+                        .insert([product])
+                        .select();
+                    
+                    if (error) throw error;
+                    
+                    showNotification('Producto añadido correctamente');
+                    addLog(`Producto añadido: ${product.name} (ID: ${data[0].id})`, 'success');
+                    resetProductForm();
+                }
+            } catch (error) {
+                console.error("Error saving product: ", error);
+                showNotification(`Error al ${editingProductId ? 'actualizar' : 'añadir'} el producto`, 'error');
+                addLog(`Error al ${editingProductId ? 'actualizar' : 'añadir'} producto: ${error.message}`, 'error');
+            }
+        }
+        
+        async function handleDeviceSubmit(e) {
+            e.preventDefault();
+            
+            const deviceId = document.getElementById('newDeviceId').value;
+            const deviceName = document.getElementById('newDeviceName').value;
+            
+            try {
+                // Guardar dispositivo en la base de datos
+                const { error } = await supabase
+                    .from('devices')
+                    .insert([{ id: deviceId, name: deviceName, created_at: new Date().toISOString() }]);
+                
+                if (error) throw error;
+                
+                showNotification('Dispositivo registrado correctamente');
+                addLog(`Dispositivo registrado: ${deviceName} (ID: ${deviceId})`, 'success');
+                
+                // Reset form
+                document.getElementById('newDeviceId').value = '';
+                document.getElementById('newDeviceName').value = '';
+                
+            } catch (error) {
+                console.error("Error saving device: ", error);
+                showNotification('Error al registrar el dispositivo', 'error');
+                addLog(`Error al registrar dispositivo: ${error.message}`, 'error');
+            }
+        }
+        
+        function resetProductForm() {
+            productForm.reset();
+            editingProductId = null;
+            selectedFiles = [];
+            uploadedImageUrls = [];
+            cancelEditBtn.classList.add('hidden');
+            document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-plus-circle mr-2"></i> Añadir Producto';
+            selectedImagesContainer.classList.add('hidden');
+            uploadedImagesContainer.classList.add('hidden');
+            selectedImagesList.innerHTML = '';
+            uploadedImagesList.innerHTML = '';
+            imageUpload.value = '';
+        }
+        
+        async function loadProducts() {
+            addLog('Cargando productos desde Supabase...', 'info');
+            
+            try {
+                let query = supabase
+                    .from('products')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                // Si es un dispositivo, filtrar solo sus productos
+                if (currentUser.type === 'device') {
+                    query = query.eq('created_by_device_id', currentUser.deviceId);
+                }
+                
+                const { data: products, error } = await query;
+                
+                if (error) throw error;
+                
+                productsList.innerHTML = '';
+                let count = 0;
+                let globalCount = 0;
+                
+                products.forEach((product) => {
+                    count++;
+                    if (product.is_global) globalCount++;
+                    
+                    const productRow = document.createElement('tr');
+                    
+                    // Preparar visualización de imágenes
+                    let imagesHtml = '';
+                    if (product.images && product.images.length > 0) {
+                        imagesHtml = `
+                            <div class="flex -space-x-2">
+                                ${product.images.slice(0, 3).map((img, idx) => `
+                                    <div class="w-8 h-8 rounded-full border-2 border-white overflow-hidden">
+                                        <img src="${img}" class="w-full h-full object-cover" alt="Imagen ${idx + 1}">
+                                    </div>
+                                `).join('')}
+                                ${product.images.length > 3 ? `
+                                    <div class="w-8 h-8 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-medium">
+                                        +${product.images.length - 3}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    } else {
+                        imagesHtml = '<span class="text-gray-400">Sin imágenes</span>';
+                    }
+                    
+                    productRow.innerHTML = `
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    ${product.images && product.images.length > 0 ? 
+                                        `<img class="h-10 w-10 object-contain" src="${product.images[0]}" alt="${product.name}">` : 
+                                        `<div class="h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
+                                            <i class="fas fa-image text-gray-400"></i>
+                                        </div>`
+                                    }
+                                </div>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-900">${product.name}</div>
+                                    <div class="text-xs text-gray-500 truncate max-w-[150px] md:max-w-none">${product.description.substring(0, 50)}...</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${getCategoryName(product.category)}</div>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">$${product.price.toFixed(2)}</div>
+                            ${product.old_price ? `<div class="text-xs text-gray-500 line-through">$${product.old_price.toFixed(2)}</div>` : ''}
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${product.created_by_device_id || 'Global'}</div>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            ${imagesHtml}
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                                ${product.status === 'active' ? 'Activo' : 'Oculto'}
+                            </span>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button class="text-indigo-600 hover:text-indigo-900 mr-3 edit-product" data-id="${product.id}">
+                                <i class="fas fa-edit mr-1"></i>
+                                <span class="hidden md:inline">Editar</span>
+                            </button>
+                            <button class="text-red-600 hover:text-red-900 delete-product" data-id="${product.id}">
+                                <i class="fas fa-trash-alt mr-1"></i>
+                                <span class="hidden md:inline">Eliminar</span>
+                            </button>
+                        </td>
+                    `;
+                    
+                    productsList.appendChild(productRow);
+                });
+                
+                totalProducts.textContent = count;
+                totalGlobalProducts.textContent = globalCount;
+                
+                // Add event listeners to edit and delete buttons
+                document.querySelectorAll('.edit-product').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const productId = e.currentTarget.getAttribute('data-id');
+                        editProduct(productId);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-product').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const productId = e.currentTarget.getAttribute('data-id');
+                        deleteProduct(productId);
+                    });
+                });
+                
+                addLog(`Productos cargados: ${count} productos encontrados`, 'success');
+            } catch (error) {
+                addLog(`Error al cargar productos: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadDevices() {
+            try {
+                // Cargar dispositivos desde Supabase
+                const { data: devices, error } = await supabase
+                    .from('devices')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                
+                devicesList.innerHTML = '';
+                let count = 0;
+                
+                devices.forEach((device) => {
+                    count++;
+                    const deviceRow = document.createElement('tr');
+                    
+                    deviceRow.innerHTML = `
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">${device.id}</div>
+                            <div class="text-xs text-gray-500">${device.name}</div>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${device.product_count || 0} productos</div>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${formatDate(device.last_connection)}</div>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button class="text-indigo-600 hover:text-indigo-900 mr-3 view-device" data-id="${device.id}">
+                                <i class="fas fa-eye mr-1"></i>
+                                Ver
+                            </button>
+                            <button class="text-red-600 hover:text-red-900 remove-device" data-id="${device.id}">
+                                <i class="fas fa-trash-alt mr-1"></i>
+                                Eliminar
+                            </button>
+                        </td>
+                    `;
+                    
+                    devicesList.appendChild(deviceRow);
+                });
+                
+                totalDevices.textContent = count;
+                
+                // Actualizar el dropdown de dispositivos en el formulario de productos
+                updateDeviceDropdown(devices);
+                
+                // Add event listeners to device buttons
+                document.querySelectorAll('.view-device').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const deviceId = e.currentTarget.getAttribute('data-id');
+                        viewDevice(deviceId);
+                    });
+                });
+                
+                document.querySelectorAll('.remove-device').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const deviceId = e.currentTarget.getAttribute('data-id');
+                        deleteDevice(deviceId);
+                    });
+                });
+                
+                addLog(`Dispositivos cargados: ${count} dispositivos encontrados`, 'success');
+            } catch (error) {
+                console.error("Error loading devices:", error);
+                addLog(`Error al cargar dispositivos: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateDeviceDropdown(devices) {
+            productDevice.innerHTML = '<option value="">Todos los dispositivos (Global)</option>';
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.id;
+                option.textContent = `${device.id} - ${device.name}`;
+                productDevice.appendChild(option);
+            });
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return 'Nunca';
+            const date = new Date(dateString);
+            return date.toLocaleString('es-ES');
+        }
+        
+        async function editProduct(productId) {
+            addLog(`Cargando producto para edición: ${productId}`, 'info');
+            
+            try {
+                const { data: product, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('id', productId)
+                    .single();
+                
+                if (error) throw error;
+                
+                document.getElementById('productName').value = product.name;
+                document.getElementById('productCategory').value = product.category;
+                document.getElementById('productPrice').value = product.price;
+                document.getElementById('productOldPrice').value = product.old_price || '';
+                document.getElementById('productStatus').value = product.status;
+                document.getElementById('productDescription').value = product.description;
+                document.getElementById('productDevice').value = product.created_by_device_id || '';
+                document.getElementById('isGlobalProduct').checked = product.is_global || false;
+                
+                // Cargar imágenes existentes
+                if (product.images && product.images.length > 0) {
+                    uploadedImageUrls = product.images;
+                    showUploadedImages(uploadedImageUrls);
+                }
+                
+                editingProductId = productId;
+                cancelEditBtn.classList.remove('hidden');
+                document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-save mr-2"></i> Guardar Cambios';
+                
+                // Scroll to form
+                productForm.scrollIntoView({ behavior: 'smooth' });
+                
+                addLog(`Producto cargado para edición: ${product.name}`, 'success');
+            } catch (error) {
+                addLog(`Error al cargar producto: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteProduct(productId) {
+            if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
+                addLog(`Eliminando producto: ${productId}`, 'info');
+                
+                try {
+                    const { error } = await supabase
+                        .from('products')
+                        .delete()
+                        .eq('id', productId);
+                    
+                    if (error) throw error;
+                    
+                    showNotification('Producto eliminado correctamente');
+                    addLog(`Producto eliminado: ${productId}`, 'success');
+                } catch (error) {
+                    console.error("Error deleting product: ", error);
+                    showNotification('Error al eliminar el producto', 'error');
+                    addLog(`Error al eliminar producto: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function viewDevice(deviceId) {
+            addLog(`Viendo detalles del dispositivo: ${deviceId}`, 'info');
+            // Aquí puedes implementar la lógica para mostrar los detalles del dispositivo
+            showNotification(`Viendo detalles del dispositivo ${deviceId}`);
+        }
+        
+        async function deleteDevice(deviceId) {
+            if (confirm('¿Estás seguro de que deseas eliminar este dispositivo?')) {
+                addLog(`Eliminando dispositivo: ${deviceId}`, 'info');
+                
+                try {
+                    const { error } = await supabase
+                        .from('devices')
+                        .delete()
+                        .eq('id', deviceId);
+                    
+                    if (error) throw error;
+                    
+                    showNotification('Dispositivo eliminado correctamente');
+                    addLog(`Dispositivo eliminado: ${deviceId}`, 'success');
+                } catch (error) {
+                    console.error("Error deleting device: ", error);
+                    showNotification('Error al eliminar el dispositivo', 'error');
+                    addLog(`Error al eliminar dispositivo: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        function getCategoryName(category) {
+            const categories = {
+                'phones': 'Teléfonos',
+                'laptops': 'Laptops',
+                'watches': 'Smartwatches',
+                'electronics': 'Electrónica',
+                'home': 'Hogar'
+            };
+            
+            return categories[category] || category;
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if(window.innerWidth > 768) {
+                sidebar.classList.remove('active');
+                mobileMenuOverlay.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
